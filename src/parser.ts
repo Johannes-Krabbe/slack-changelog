@@ -3,7 +3,7 @@ import type { CreateListOption } from "./slack";
 
 const NOTICKET = "NOTICKET"
 const OTHER = "OTHER"
-const TICKET_CODE_REGEX = /^[A-Z]+-[0-9]+/;
+const TICKET_CODE_REGEX = /^[A-Z]+(?:-|\s)[0-9]+/;
 
 export function createList(
     commits: Commit[],
@@ -21,7 +21,7 @@ export function createList(
         const ticketMatch = commit.message.match(TICKET_CODE_REGEX);
 
         if (ticketMatch) {
-            const ticket = ticketMatch[0];
+            const ticket = ticketMatch[0].replace(/\s/, '-').toUpperCase()
 
             if (!data[ticket]) {
                 const ticketLink = `<https://linear.app/${opts.linearOrg}/issue/${ticket}|${ticket}>`;
