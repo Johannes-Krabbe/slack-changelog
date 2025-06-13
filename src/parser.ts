@@ -54,14 +54,13 @@ export function createList(
         list.push({ text: header, indent: 0 })
 
         for (const commit of commits) {
-            list.push({ text: `${commit.message} (<${createCommitLink(commit, opts)}|${commit.sha}>)`, indent: 1 })
+            list.push({ text: `${commit.message} (<${createCommitLink(commit, opts)}|${commit.shortSha}>)`, indent: 1 })
         }
     }
-
 
     return list
 }
 
 function createCommitLink(commit: Commit, { serverUrl, repository }: { serverUrl: string, repository: string }) {
-    return `${serverUrl}/${repository}/commit/${commit.shortSha}`;
+    return `${serverUrl}/${repository}/commit/${commit.sha}`;
 }
