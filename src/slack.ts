@@ -31,7 +31,7 @@ export async function sendChangelog({ webhookUrl, list, githubInfo }: { webhookU
                 type: "header",
                 text: {
                     type: "plain_text",
-                    text: "Automatic release changelog 🚀",
+                    text: "New push to main 🚀 Changelog:",
                     emoji: true
                 }
             },

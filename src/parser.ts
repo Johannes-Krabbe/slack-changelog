@@ -6,7 +6,7 @@ const OTHER = "OTHER"
 const TICKET_CODE_REGEX = /^[A-Z]+-[0-9]+/;
 
 export function createList(
-    commits: { sha: string, message: string }[],
+    commits: Commit[],
     opts: { linearOrg: string, serverUrl: string, repository: string }
 ): CreateListOption[] {
     const data: Record<string, { header: string, commits: Commit[] }> = {}
@@ -54,7 +54,7 @@ export function createList(
         list.push({ text: header, indent: 0 })
 
         for (const commit of commits) {
-            list.push({ text: `${commit.message} (<${createCommitLink(commit.sha, opts)}|${commit.sha}>)`, indent: 1 })
+            list.push({ text: `${commit.message} (<${createCommitLink(commit, opts)}|${commit.sha}>)`, indent: 1 })
         }
     }
 
@@ -62,6 +62,6 @@ export function createList(
     return list
 }
 
-function createCommitLink(commitHash: string, { serverUrl, repository }: { serverUrl: string, repository: string }) {
-    return `${serverUrl}/${repository}/commit/${commitHash}`;
+function createCommitLink(commit: Commit, { serverUrl, repository }: { serverUrl: string, repository: string }) {
+    return `${serverUrl}/${repository}/commit/${commit.shortSha}`;
 }

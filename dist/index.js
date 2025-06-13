@@ -36492,7 +36492,7 @@ async function sendChangelog({ webhookUrl, list, githubInfo }) {
         type: "header",
         text: {
           type: "plain_text",
-          text: "Automatic release changelog \uD83D\uDE80",
+          text: "New push to main \uD83D\uDE80 Changelog:",
           emoji: true
         }
       },
@@ -36608,13 +36608,13 @@ function createList2(commits, opts) {
     const { header, commits: commits2 } = data[key];
     list.push({ text: header, indent: 0 });
     for (const commit of commits2) {
-      list.push({ text: `${commit.message} (<${createCommitLink(commit.sha, opts)}|${commit.sha}>)`, indent: 1 });
+      list.push({ text: `${commit.message} (<${createCommitLink(commit, opts)}|${commit.sha}>)`, indent: 1 });
     }
   }
   return list;
 }
-function createCommitLink(commitHash, { serverUrl, repository }) {
-  return `${serverUrl}/${repository}/commit/${commitHash}`;
+function createCommitLink(commit, { serverUrl, repository }) {
+  return `${serverUrl}/${repository}/commit/${commit.shortSha}`;
 }
 
 // src/github.ts
@@ -36635,6 +36635,7 @@ async function getCommits(octokit, beforeSha, afterSha, owner, repo) {
     }
     return commits.map((commit) => ({
       sha: commit.sha,
+      shortSha: commit.sha.substring(0, 7),
       message: commit.commit.message
     }));
   } catch (error) {

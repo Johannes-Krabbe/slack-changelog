@@ -3,6 +3,7 @@ import * as github from '@actions/github';
 
 export interface Commit {
     sha: string;
+    shortSha: string;
     message: string;
 }
 
@@ -32,6 +33,7 @@ export async function getCommits(
         }
         return commits.map(commit => ({
             sha: commit.sha,
+            shortSha: commit.sha.substring(0, 7),
             message: commit.commit.message,
         }));
     } catch (error) {
