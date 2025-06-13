@@ -1,6 +1,6 @@
 import * as core from '@actions/core';
 import * as github from '@actions/github';
-import { execSync } from 'child_process';
+import { execSync, spawnSync } from 'child_process';
 import { sendSlackMessage } from './slack';
 
 async function run(): Promise<void> {
@@ -76,7 +76,20 @@ async function run(): Promise<void> {
 function generateChangelog(beforeSha: string, afterSha: string, serverUrl: string, repository: string): string {
     try {
         // Get commit messages for all commits in this push
-        const commitsOutput = execSync(`git log --pretty=format:"%H %s" "${beforeSha}".."${afterSha}"`, { encoding: 'utf8' }).trim();
+
+        const result = spawnSync('git', [
+            'log',
+            '--pretty=format:%H %s',
+            `${beforeSha}..${afterSha}`
+        ], {
+            encoding: 'utf8'
+        });
+
+        if (result.error) {
+            throw result.error;
+        }
+
+        const commitsOutput = result.stdout.trim();
 
         if (!commitsOutput) {
             return "No changes found in this deployment";
