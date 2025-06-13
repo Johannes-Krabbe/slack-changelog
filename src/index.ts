@@ -1,6 +1,5 @@
 import * as core from '@actions/core';
 import * as github from '@actions/github';
-import { execSync, spawnSync } from 'child_process';
 import { sendSlackMessage } from './slack';
 
 async function run(): Promise<void> {
@@ -12,30 +11,39 @@ async function run(): Promise<void> {
         const serverUrl = process.env.GITHUB_SERVER_URL || 'https://github.com';
         const repository = github.context.repo.owner + '/' + github.context.repo.repo;
         const slackWebhookUrl = core.getInput('slack-webhook-url') || process.env.SLACK_WEBHOOK_URL;
+        const githubToken = core.getInput('github-token') || process.env.GITHUB_TOKEN;
 
         if (!slackWebhookUrl) {
             core.setFailed('SLACK_WEBHOOK_URL is required');
             return;
         }
 
-        core.info(`Processing commits from ${beforeSha} to ${afterSha}`);
-
-        // Fetch all branches
-        try {
-            execSync('git fetch --all', { stdio: 'inherit' });
-            execSync('git fetch origin +refs/heads/*:refs/remotes/origin/*', { stdio: 'inherit' });
-        } catch (error) {
-            core.warning(`Failed to fetch branches: ${error}`);
+        if (!githubToken) {
+            core.setFailed('GITHUB_TOKEN is required');
+            return;
         }
 
-        // Generate changelog
-        const changelog = generateChangelog(beforeSha, afterSha, serverUrl, repository);
+        core.info(`Processing commits from ${beforeSha} to ${afterSha}`);
 
+        // Create GitHub client
+        const octokit = github.getOctokit(githubToken);
+
+        // Generate changelog using GitHub API
+        const changelog = await generateChangelog(
+            octokit,
+            beforeSha,
+            afterSha,
+            serverUrl,
+            repository,
+            github.context.repo.owner,
+            github.context.repo.repo
+        );
 
         // Send Slack notification
         try {
             await sendSlackMessage({
-                webhookUrl: slackWebhookUrl, blocks: [
+                webhookUrl: slackWebhookUrl,
+                blocks: [
                     {
                         type: "header",
                         text: {
@@ -73,41 +81,44 @@ async function run(): Promise<void> {
     }
 }
 
-function generateChangelog(beforeSha: string, afterSha: string, serverUrl: string, repository: string): string {
+async function generateChangelog(
+    octokit: ReturnType<typeof github.getOctokit>,
+    beforeSha: string,
+    afterSha: string,
+    serverUrl: string,
+    repository: string,
+    owner: string,
+    repo: string
+): Promise<string> {
     try {
-        // Get commit messages for all commits in this push
-        
-        core.info(`TEST TEST 123`);
+        core.info(`Fetching commits between ${beforeSha} and ${afterSha}`);
 
-        const result = spawnSync('git', [
-            'log',
-            '--pretty=format:%H %s',
-            `${beforeSha}..${afterSha}`
-        ], {
-            encoding: 'utf8'
+        // Get the comparison between the two commits
+        const comparison = await octokit.rest.repos.compareCommits({
+            owner,
+            repo,
+            base: beforeSha,
+            head: afterSha
         });
 
-        if (result.error) {
-            throw result.error;
-        }
+        const commits = comparison.data.commits;
 
-        const commitsOutput = result.stdout.trim();
-
-        if (!commitsOutput) {
+        if (!commits || commits.length === 0) {
             return "No changes found in this deployment";
         }
 
-        const commits = commitsOutput.split('\n').filter(line => line.trim());
         const changelogEntries: string[] = [];
 
-        for (const line of commits) {
-            const spaceIndex = line.indexOf(' ');
-            if (spaceIndex === -1) continue;
-
-            const commitHash = line.substring(0, spaceIndex);
-            const commitMsg = line.substring(spaceIndex + 1);
+        for (const commit of commits) {
+            const commitHash = commit.sha;
+            let commitMsg = commit.commit.message.split('\n')[0]; // Get first line only
             const shortHash = commitHash.substring(0, 7);
             const commitLink = `${serverUrl}/${repository}/commit/${commitHash}`;
+            if(!commitMsg) {
+                core.warning(`Commit message is empty for commit ${commitHash}`);
+                commitMsg = `Commit ${shortHash} has no message`;
+                continue;
+            }
 
             // Check if commit message starts with a Linear ticket ID
             const linearTicketRegex = /^[A-Z]+-[0-9]+/;
@@ -141,3 +152,4 @@ function generateChangelog(beforeSha: string, afterSha: string, serverUrl: strin
 
 // Run the action
 run();
+
