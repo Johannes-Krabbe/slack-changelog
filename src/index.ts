@@ -76,7 +76,7 @@ async function run(): Promise<void> {
 function generateChangelog(beforeSha: string, afterSha: string, serverUrl: string, repository: string): string {
     try {
         // Get commit messages for all commits in this push
-        const gitLogCommand = `git log --pretty=format:"%H %s" $${beforeSha}..$${afterSha}`;
+        const gitLogCommand = `git log --pretty=format:"%H %s" ${beforeSha}..${afterSha}`;
         const commitsOutput = execSync(gitLogCommand, { encoding: 'utf8' }).trim();
 
         if (!commitsOutput) {
