@@ -1,0 +1,17 @@
+name: 'Changelog Notification'
+description: 'Send changelog notifications to Slack on push to main'
+author: 'Johannes Krabbe'
+inputs:
+  slack-webhook-url:
+    description: 'Slack webhook URL'
+    required: false
+    default: ''
+outputs:
+  changelog:
+    description: 'Generated changelog content'
+runs:
+  using: 'node20'
+  main: 'dist/index.js'
+branding:
+  icon: 'message-circle'
+  color: 'blue'
