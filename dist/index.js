@@ -36566,7 +36566,7 @@ function createList(opts) {
 // src/parser.ts
 var NOTICKET = "NOTICKET";
 var OTHER = "OTHER";
-var TICKET_CODE_REGEX = /^[A-Z]+-[0-9]+/;
+var TICKET_CODE_REGEX = /^[A-Z]+(?:-|\s)[0-9]+/;
 function createList2(commits, opts) {
   const data = {};
   for (const commit of commits) {
@@ -36578,7 +36578,7 @@ function createList2(commits, opts) {
     }
     const ticketMatch = commit.message.match(TICKET_CODE_REGEX);
     if (ticketMatch) {
-      const ticket = ticketMatch[0];
+      const ticket = ticketMatch[0].replace(/\s/, "-").toUpperCase();
       if (!data[ticket]) {
         const ticketLink = `<https://linear.app/${opts.linearOrg}/issue/${ticket}|${ticket}>`;
         data[ticket] = { header: ticketLink, commits: [] };
@@ -36608,13 +36608,13 @@ function createList2(commits, opts) {
     const { header, commits: commits2 } = data[key];
     list.push({ text: header, indent: 0 });
     for (const commit of commits2) {
-      list.push({ text: `${commit.message} (<${createCommitLink(commit, opts)}|${commit.sha}>)`, indent: 1 });
+      list.push({ text: `${commit.message} (<${createCommitLink(commit, opts)}|${commit.shortSha}>)`, indent: 1 });
     }
   }
   return list;
 }
 function createCommitLink(commit, { serverUrl, repository }) {
-  return `${serverUrl}/${repository}/commit/${commit.shortSha}`;
+  return `${serverUrl}/${repository}/commit/${commit.sha}`;
 }
 
 // src/github.ts
