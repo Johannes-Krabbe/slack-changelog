@@ -3,22 +3,6 @@ import * as github from '@actions/github';
 import { execSync } from 'child_process';
 import { sendSlackMessage } from './slack';
 
-interface SlackPayload {
-    text: string;
-    blocks: Array<{
-        type: string;
-        text?: {
-            type: string;
-            text: string;
-            emoji?: boolean;
-        };
-        elements?: Array<{
-            type: string;
-            text: string;
-        }>;
-    }>;
-}
-
 async function run(): Promise<void> {
     try {
         // Get environment variables and context

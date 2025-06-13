@@ -1,3 +1,5 @@
+import axios from 'axios';
+
 type SlackBlock = {
     type: string;
     text: {
@@ -16,21 +18,11 @@ type SlackBlock = {
 
 export async function sendSlackMessage({ webhookUrl, blocks }: { webhookUrl: string, blocks: SlackBlock[] }) {
     try {
-        const response = await fetch(webhookUrl, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ blocks }),
-        });
-
-        if (!response.ok) {
-            const errorData = await response.text();
-            console.error('Slack API error response:', errorData);
-            throw new Error(`Failed to send message to Slack: ${response.statusText}. Response: ${errorData}`);
-        }
+        await axios.post(webhookUrl, JSON.stringify({ blocks }))
     } catch (error) {
-        console.error('Error sending message to Slack:', error);
+        if (error instanceof Error) {
+            console.error('Error sending message to Slack:', error.message);
+        }
         throw error;
     }
 }
