@@ -37,12 +37,12 @@ export function createList(
     }
 
     const keys = Object.keys(data).sort((a, b) => {
-        if (a === NOTICKET) return -1;
-        if (b === NOTICKET) return 1;
         if (a === OTHER) return 1;
         if (b === OTHER) return -1;
+        if (a === NOTICKET) return 1;
+        if (b === NOTICKET) return -1;
         return a.localeCompare(b);
-    })
+    });
 
     const list: CreateListOption[] = [];
 
