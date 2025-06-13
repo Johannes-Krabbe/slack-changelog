@@ -1,32 +1,9 @@
 import axios from 'axios';
 
-type SlackBlock = {
+interface SlackBlock {
     type: string;
-    text: {
-        type: string;
-        text: string;
-        emoji?: boolean;
-    };
-} | {
-    type: 'context';
-    elements: {
-        type: string;
-        text: string;
-    }[];
-} | {
-    type: 'rich_text';
-    elements: {
-        type: 'rich_text_list';
-        elements: {
-            type: 'rich_text_section';
-            elements: {
-                type: 'text';
-                text: string;
-            }[];
-        }[];
-        style: 'bullet' | 'ordered';
-        indent: number;
-    }[];
+    text?: any;
+    elements?: SlackBlock[] | any[];
 }
 
 
@@ -72,6 +49,63 @@ export async function sendChangelog({ webhookUrl, list, githubInfo }: { webhookU
     });
 }
 
+interface SlackTextElement {
+    type: "text" | "link";
+    text?: string;
+    url?: string;
+}
+
+
+function parseTextWithLinks(text: string): SlackTextElement[] {
+    const elements: SlackTextElement[] = [];
+    const linkRegex = /<([^|>]+)\|([^>]+)>/g;
+    let lastIndex = 0;
+    let match;
+
+    while ((match = linkRegex.exec(text)) !== null) {
+        // Add text before the link
+        if (match.index > lastIndex) {
+            const beforeText = text.slice(lastIndex, match.index);
+            if (beforeText) {
+                elements.push({
+                    type: "text",
+                    text: beforeText
+                });
+            }
+        }
+
+        // Add the link
+        elements.push({
+            type: "link",
+            url: match[1],
+            text: match[2]
+        });
+
+        lastIndex = match.index + match[0].length;
+    }
+
+    // Add remaining text after the last link
+    if (lastIndex < text.length) {
+        const remainingText = text.slice(lastIndex);
+        if (remainingText) {
+            elements.push({
+                type: "text",
+                text: remainingText
+            });
+        }
+    }
+
+    // If no links were found, return the original text
+    if (elements.length === 0) {
+        elements.push({
+            type: "text",
+            text: text
+        });
+    }
+
+    return elements;
+}
+
 function createList(opts: CreateListOption[]): SlackBlock {
     return {
         type: "rich_text",
@@ -79,13 +113,11 @@ function createList(opts: CreateListOption[]): SlackBlock {
             type: "rich_text_list",
             elements: [{
                 type: "rich_text_section",
-                elements: [{
-                    type: "text",
-                    text: opt.text
-                }]
+                elements: parseTextWithLinks(opt.text)
             }],
             style: "bullet",
-            indent: opt.indent
+            indent: opt.indent || 0
         }))
-    }
+    };
 }
+

@@ -36509,6 +36509,45 @@ async function sendChangelog({ webhookUrl, list, githubInfo }) {
     ]
   });
 }
+function parseTextWithLinks(text) {
+  const elements = [];
+  const linkRegex = /<([^|>]+)\|([^>]+)>/g;
+  let lastIndex = 0;
+  let match;
+  while ((match = linkRegex.exec(text)) !== null) {
+    if (match.index > lastIndex) {
+      const beforeText = text.slice(lastIndex, match.index);
+      if (beforeText) {
+        elements.push({
+          type: "text",
+          text: beforeText
+        });
+      }
+    }
+    elements.push({
+      type: "link",
+      url: match[1],
+      text: match[2]
+    });
+    lastIndex = match.index + match[0].length;
+  }
+  if (lastIndex < text.length) {
+    const remainingText = text.slice(lastIndex);
+    if (remainingText) {
+      elements.push({
+        type: "text",
+        text: remainingText
+      });
+    }
+  }
+  if (elements.length === 0) {
+    elements.push({
+      type: "text",
+      text
+    });
+  }
+  return elements;
+}
 function createList(opts) {
   return {
     type: "rich_text",
@@ -36516,13 +36555,10 @@ function createList(opts) {
       type: "rich_text_list",
       elements: [{
         type: "rich_text_section",
-        elements: [{
-          type: "text",
-          text: opt.text
-        }]
+        elements: parseTextWithLinks(opt.text)
       }],
       style: "bullet",
-      indent: opt.indent
+      indent: opt.indent || 0
     }))
   };
 }
