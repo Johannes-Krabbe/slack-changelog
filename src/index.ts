@@ -76,8 +76,7 @@ async function run(): Promise<void> {
 function generateChangelog(beforeSha: string, afterSha: string, serverUrl: string, repository: string): string {
     try {
         // Get commit messages for all commits in this push
-        const gitLogCommand = `git log --pretty=format:"%H %s" ${beforeSha.slice(1)}..${afterSha.slice(1)}`;
-        const commitsOutput = execSync(gitLogCommand, { encoding: 'utf8' }).trim();
+        const commitsOutput = execSync(`git log --pretty=format:"%H %s" ${beforeSha}..${afterSha}`, { encoding: 'utf8' }).trim();
 
         if (!commitsOutput) {
             return "No changes found in this deployment";
