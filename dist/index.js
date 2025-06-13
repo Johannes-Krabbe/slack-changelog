@@ -36566,7 +36566,7 @@ function createList(opts) {
 // src/parser.ts
 var NOTICKET = "NOTICKET";
 var OTHER = "OTHER";
-var TICKET_CODE_REGEX = /^[A-Z]+(?:-|\s)[0-9]+/;
+var TICKET_CODE_REGEX = /^[A-Z]+(?:-|\s)[0-9]+/i;
 function createList2(commits, opts) {
   const data = {};
   for (const commit of commits) {

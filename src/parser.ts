@@ -3,7 +3,7 @@ import type { CreateListOption } from "./slack";
 
 const NOTICKET = "NOTICKET"
 const OTHER = "OTHER"
-const TICKET_CODE_REGEX = /^[A-Z]+(?:-|\s)[0-9]+/;
+const TICKET_CODE_REGEX = /^[A-Z]+(?:-|\s)[0-9]+/i;
 
 export function createList(
     commits: Commit[],
