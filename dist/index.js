@@ -33365,7 +33365,7 @@ var require_follow_redirects = __commonJS((exports, module) => {
 });
 
 // src/index.ts
-var core = __toESM(require_core(), 1);
+var core2 = __toESM(require_core(), 1);
 var github = __toESM(require_github(), 1);
 
 // node_modules/axios/lib/helpers/bind.js
@@ -36484,67 +36484,106 @@ async function sendSlackMessage({ webhookUrl, blocks }) {
     throw error;
   }
 }
-
-// src/index.ts
-async function run() {
-  try {
-    const beforeSha = github.context.payload.before;
-    const afterSha = github.context.payload.after;
-    const actor = github.context.actor;
-    const serverUrl = process.env.GITHUB_SERVER_URL || "https://github.com";
-    const repository = github.context.repo.owner + "/" + github.context.repo.repo;
-    const slackWebhookUrl = core.getInput("slack-webhook-url") || process.env.SLACK_WEBHOOK_URL;
-    const githubToken = core.getInput("github-token") || process.env.GITHUB_TOKEN;
-    if (!slackWebhookUrl) {
-      core.setFailed("SLACK_WEBHOOK_URL is required");
-      return;
-    }
-    if (!githubToken) {
-      core.setFailed("GITHUB_TOKEN is required");
-      return;
-    }
-    core.info(`Processing commits from ${beforeSha} to ${afterSha}`);
-    const octokit = github.getOctokit(githubToken);
-    const changelog = await generateChangelog(octokit, beforeSha, afterSha, serverUrl, repository, github.context.repo.owner, github.context.repo.repo);
-    try {
-      await sendSlackMessage({
-        webhookUrl: slackWebhookUrl,
-        blocks: [
+async function sendChangelog({ webhookUrl, list, githubInfo }) {
+  await sendSlackMessage({
+    webhookUrl,
+    blocks: [
+      {
+        type: "header",
+        text: {
+          type: "plain_text",
+          text: "Automatic release changelog \uD83D\uDE80",
+          emoji: true
+        }
+      },
+      createList(list),
+      {
+        type: "context",
+        elements: [
           {
-            type: "header",
-            text: {
-              type: "plain_text",
-              text: "Automatic release changelog \uD83D\uDE80",
-              emoji: true
-            }
-          },
-          {
-            type: "section",
-            text: {
-              type: "mrkdwn",
-              text: changelog
-            }
-          },
-          {
-            type: "context",
-            elements: [
-              {
-                type: "mrkdwn",
-                text: `Deployed by: ${actor} | <${serverUrl}/${repository}/tree/main|Github>`
-              }
-            ]
+            type: "mrkdwn",
+            text: `Deployed by: ${githubInfo.actor} | <${githubInfo.serverUrl}/${githubInfo.repository}/tree/main|Github>`
           }
         ]
-      });
-    } catch (error) {
-      core.setFailed(`Failed to send Slack notification: ${error instanceof Error ? error.message : String(error)}`);
-    }
-    core.info("Slack notification sent successfully");
-  } catch (error) {
-    core.setFailed(`Action failed: ${error instanceof Error ? error.message : String(error)}`);
-  }
+      }
+    ]
+  });
 }
-async function generateChangelog(octokit, beforeSha, afterSha, serverUrl, repository, owner, repo) {
+function createList(opts) {
+  return {
+    type: "rich_text",
+    elements: opts.map((opt) => ({
+      type: "rich_text_list",
+      elements: [{
+        type: "rich_text_section",
+        elements: [{
+          type: "text",
+          text: opt.text
+        }]
+      }],
+      style: "bullet",
+      indent: opt.indent
+    }))
+  };
+}
+
+// src/parser.ts
+var NOTICKET = "NOTICKET";
+var OTHER = "OTHER";
+var TICKET_CODE_REGEX = /^[A-Z]+-[0-9]+/;
+function createList2(commits, opts) {
+  const data = {};
+  for (const commit of commits) {
+    if (commit.message.startsWith(NOTICKET)) {
+      if (!data[NOTICKET])
+        data[NOTICKET] = { header: NOTICKET, commits: [] };
+      data[NOTICKET].commits.push(commit);
+      continue;
+    }
+    const ticketMatch = commit.message.match(TICKET_CODE_REGEX);
+    if (ticketMatch) {
+      const ticket = ticketMatch[0];
+      if (!data[ticket]) {
+        const ticketLink = `<https://linear.app/${opts.linearOrg}/issue/${ticket}|${ticket}>`;
+        data[ticket] = { header: ticketLink, commits: [] };
+      }
+      data[ticket].commits.push(commit);
+      continue;
+    }
+    if (!data[OTHER])
+      data[OTHER] = { header: OTHER, commits: [] };
+    data[OTHER].commits.push(commit);
+  }
+  const keys = Object.keys(data).sort((a, b) => {
+    if (a === NOTICKET)
+      return -1;
+    if (b === NOTICKET)
+      return 1;
+    if (a === OTHER)
+      return 1;
+    if (b === OTHER)
+      return -1;
+    return a.localeCompare(b);
+  });
+  const list = [];
+  for (const key of keys) {
+    if (!data[key])
+      throw new Error(`Key ${key} not found in data (internal error)`);
+    const { header, commits: commits2 } = data[key];
+    list.push({ text: header, indent: 0 });
+    for (const commit of commits2) {
+      list.push({ text: `${commit.message} (<${createCommitLink(commit.sha, opts)}|${commit.sha}>)`, indent: 1 });
+    }
+  }
+  return list;
+}
+function createCommitLink(commitHash, { serverUrl, repository }) {
+  return `${serverUrl}/${repository}/commit/${commitHash}`;
+}
+
+// src/github.ts
+var core = __toESM(require_core(), 1);
+async function getCommits(octokit, beforeSha, afterSha, owner, repo) {
   try {
     core.info(`Fetching commits between ${beforeSha} and ${afterSha}`);
     const comparison = await octokit.rest.repos.compareCommits({
@@ -36555,42 +36594,49 @@ async function generateChangelog(octokit, beforeSha, afterSha, serverUrl, reposi
     });
     const commits = comparison.data.commits;
     if (!commits || commits.length === 0) {
-      return "No changes found in this deployment";
+      core.info("No commits found in the specified range.");
+      return [];
     }
-    const changelogEntries = [];
-    for (const commit of commits) {
-      const commitHash = commit.sha;
-      let commitMsg = commit.commit.message.split(`
-`)[0];
-      const shortHash = commitHash.substring(0, 7);
-      const commitLink = `${serverUrl}/${repository}/commit/${commitHash}`;
-      if (!commitMsg) {
-        core.warning(`Commit message is empty for commit ${commitHash}`);
-        commitMsg = `Commit ${shortHash} has no message`;
-        continue;
-      }
-      const linearTicketRegex = /^[A-Z]+-[0-9]+/;
-      const ticketMatch = commitMsg.match(linearTicketRegex);
-      if (ticketMatch) {
-        const ticket = ticketMatch[0];
-        const ticketLink = `<https://linear.app/neotaste/issue/${ticket}|${ticket}>`;
-        const colonIndex = commitMsg.indexOf(":");
-        if (colonIndex !== -1) {
-          const restOfMsg = commitMsg.substring(colonIndex);
-          const formattedMsg = `${ticketLink}${restOfMsg}`;
-          changelogEntries.push(`- ${formattedMsg} (<${commitLink}|${shortHash}>)`);
-        } else {
-          changelogEntries.push(`- ${ticketLink} (<${commitLink}|${shortHash}>)`);
-        }
-      } else {
-        changelogEntries.push(`- ${commitMsg} (<${commitLink}|${shortHash}>)`);
-      }
-    }
-    return changelogEntries.length > 0 ? changelogEntries.join(`
-`) : "No changes found in this deployment";
+    return commits.map((commit) => ({
+      sha: commit.sha,
+      message: commit.commit.message
+    }));
   } catch (error) {
-    core.warning(`Failed to generate changelog: ${error}`);
-    return "Failed to generate changelog";
+    core.info(`Failed to fetch commits: ${error instanceof Error ? error.message : String(error)}`);
+    return [];
+  }
+}
+
+// src/index.ts
+async function run() {
+  try {
+    const beforeSha = github.context.payload.before;
+    const afterSha = github.context.payload.after;
+    const actor = github.context.actor;
+    const serverUrl = process.env.GITHUB_SERVER_URL || "https://github.com";
+    const repository = github.context.repo.owner + "/" + github.context.repo.repo;
+    const webhookUrl = core2.getInput("slack-webhook-url");
+    const githubToken = core2.getInput("github-token");
+    if (!webhookUrl || !githubToken) {
+      core2.setFailed('Both "slack-webhook-url" and "github-token" inputs are required.');
+      return;
+    }
+    core2.info(`Processing commits from ${beforeSha} to ${afterSha}`);
+    const octokit = github.getOctokit(githubToken);
+    const commits = await getCommits(octokit, beforeSha, afterSha, github.context.repo.owner, github.context.repo.repo);
+    const list = createList2(commits, {
+      serverUrl,
+      repository,
+      linearOrg: "neotaste"
+    });
+    try {
+      await sendChangelog({ webhookUrl, list, githubInfo: { serverUrl, repository, actor } });
+    } catch (error) {
+      core2.setFailed(`Failed to send Slack notification: ${error instanceof Error ? error.message : String(error)}`);
+    }
+    core2.info("Slack notification sent successfully");
+  } catch (error) {
+    core2.setFailed(`Action failed: ${error instanceof Error ? error.message : String(error)}`);
   }
 }
 run();
