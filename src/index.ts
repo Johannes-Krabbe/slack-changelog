@@ -76,6 +76,8 @@ async function run(): Promise<void> {
 function generateChangelog(beforeSha: string, afterSha: string, serverUrl: string, repository: string): string {
     try {
         // Get commit messages for all commits in this push
+        
+        core.info(`TEST TEST 123`);
 
         const result = spawnSync('git', [
             'log',
