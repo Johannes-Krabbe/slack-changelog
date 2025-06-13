@@ -1,6 +1,7 @@
 import * as core from '@actions/core';
 import * as github from '@actions/github';
 import { execSync } from 'child_process';
+import { sendSlackMessage } from './slack';
 
 interface SlackPayload {
     text: string;
@@ -46,39 +47,40 @@ async function run(): Promise<void> {
         // Generate changelog
         const changelog = generateChangelog(beforeSha, afterSha, serverUrl, repository);
 
-        // Create Slack payload
-        const slackPayload: SlackPayload = {
-            text: "New push to main, changelog:",
-            blocks: [
-                {
-                    type: "header",
-                    text: {
-                        type: "plain_text",
-                        text: "Automatic release changelog 🚀",
-                        emoji: true
-                    }
-                },
-                {
-                    type: "section",
-                    text: {
-                        type: "mrkdwn",
-                        text: changelog
-                    }
-                },
-                {
-                    type: "context",
-                    elements: [
-                        {
-                            type: "mrkdwn",
-                            text: `Deployed by: ${actor} | <${serverUrl}/${repository}/tree/main|Github>`
-                        }
-                    ]
-                }
-            ]
-        };
 
         // Send Slack notification
-        await sendSlackNotification(slackWebhookUrl, slackPayload);
+        try {
+            await sendSlackMessage({
+                webhookUrl: slackWebhookUrl, blocks: [
+                    {
+                        type: "header",
+                        text: {
+                            type: "plain_text",
+                            text: "Automatic release changelog 🚀",
+                            emoji: true
+                        }
+                    },
+                    {
+                        type: "section",
+                        text: {
+                            type: "mrkdwn",
+                            text: changelog
+                        }
+                    },
+                    {
+                        type: "context",
+                        elements: [
+                            {
+                                type: "mrkdwn",
+                                text: `Deployed by: ${actor} | <${serverUrl}/${repository}/tree/main|Github>`
+                            }
+                        ]
+                    }
+                ]
+            });
+        } catch (error) {
+            core.setFailed(`Failed to send Slack notification: ${error instanceof Error ? error.message : String(error)}`);
+        }
 
         core.info('Slack notification sent successfully');
 
@@ -136,26 +138,6 @@ function generateChangelog(beforeSha: string, afterSha: string, serverUrl: strin
     } catch (error) {
         core.warning(`Failed to generate changelog: ${error}`);
         return "Failed to generate changelog";
-    }
-}
-
-async function sendSlackNotification(webhookUrl: string, payload: SlackPayload): Promise<void> {
-    try {
-        const response = await fetch(webhookUrl, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(payload),
-        });
-
-        if (!response.ok) {
-            throw new Error(`Slack API responded with status: ${response.status}`);
-        }
-
-        core.info('Slack notification sent successfully');
-    } catch (error) {
-        throw new Error(`Failed to send Slack notification: ${error}`);
     }
 }
 
