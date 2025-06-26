@@ -51,10 +51,17 @@ export function createList(
 
         const { header, commits } = data[key];
 
-        list.push({ text: header, indent: 0 })
+        if (commits.length === 1) {
+            const messageWithoutTicket = commits[0]!.message.replace(commits[0]!.message.match(TICKET_CODE_REGEX)![0], '').trim();
 
-        for (const commit of commits) {
-            list.push({ text: `${commit.message} (<${createCommitLink(commit, opts)}|${commit.shortSha}>)`, indent: 1 })
+            list.push({ text: `${header} ${messageWithoutTicket} (<${createCommitLink(commits[0]!, opts)}|${commits[0]!.shortSha}>)`, indent: 0 });
+        } else {
+
+            list.push({ text: header, indent: 0 })
+
+            for (const commit of commits) {
+                list.push({ text: `${commit.message} (<${createCommitLink(commit, opts)}|${commit.shortSha}>)`, indent: 1 })
+            }
         }
     }
 
