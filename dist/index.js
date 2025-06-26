@@ -36606,9 +36606,14 @@ function createList2(commits, opts) {
     if (!data[key])
       throw new Error(`Key ${key} not found in data (internal error)`);
     const { header, commits: commits2 } = data[key];
-    list.push({ text: header, indent: 0 });
-    for (const commit of commits2) {
-      list.push({ text: `${commit.message} (<${createCommitLink(commit, opts)}|${commit.shortSha}>)`, indent: 1 });
+    if (commits2.length === 1) {
+      const messageWithoutTicket = commits2[0].message.replace(commits2[0].message.match(TICKET_CODE_REGEX)[0], "").trim();
+      list.push({ text: `${header} ${messageWithoutTicket} (<${createCommitLink(commits2[0], opts)}|${commits2[0].shortSha}>)`, indent: 0 });
+    } else {
+      list.push({ text: header, indent: 0 });
+      for (const commit of commits2) {
+        list.push({ text: `${commit.message} (<${createCommitLink(commit, opts)}|${commit.shortSha}>)`, indent: 1 });
+      }
     }
   }
   return list;
