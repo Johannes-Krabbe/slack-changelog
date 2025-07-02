@@ -33365,7 +33365,7 @@ var require_follow_redirects = __commonJS((exports, module) => {
 });
 
 // src/index.ts
-var core2 = __toESM(require_core(), 1);
+var core3 = __toESM(require_core(), 1);
 var github = __toESM(require_github(), 1);
 
 // node_modules/axios/lib/helpers/bind.js
@@ -36564,11 +36564,14 @@ function createList(opts) {
 }
 
 // src/parser.ts
+var core = __toESM(require_core(), 1);
 var NOTICKET = "NOTICKET";
 var OTHER = "OTHER";
 var TICKET_CODE_REGEX = /^[A-Z]+(?:-|\s)[0-9]+/i;
 function createList2(commits, opts) {
   const data = {};
+  core.info(`Creating list from ${commits.length} commits`);
+  core.info(JSON.stringify(commits, null, 2));
   for (const commit of commits) {
     if (commit.message.startsWith(NOTICKET)) {
       if (!data[NOTICKET])
@@ -36607,12 +36610,24 @@ function createList2(commits, opts) {
       throw new Error(`Key ${key} not found in data (internal error)`);
     const { header, commits: commits2 } = data[key];
     if (commits2.length === 1) {
-      const messageWithoutTicket = commits2[0].message.replace(commits2[0].message.match(TICKET_CODE_REGEX)[0], "").trim();
+      const ticketMatch = commits2[0].message.match(TICKET_CODE_REGEX);
+      let messageWithoutTicket = ticketMatch ? commits2[0].message.replace(ticketMatch[0], "").trim() : commits2[0].message;
+      if (messageWithoutTicket.startsWith(":"))
+        messageWithoutTicket = messageWithoutTicket.replace(":", "").trim();
       list.push({ text: `${header} ${messageWithoutTicket} (<${createCommitLink(commits2[0], opts)}|${commits2[0].shortSha}>)`, indent: 0 });
     } else {
       list.push({ text: header, indent: 0 });
       for (const commit of commits2) {
-        list.push({ text: `${commit.message} (<${createCommitLink(commit, opts)}|${commit.shortSha}>)`, indent: 1 });
+        let msg = commit.message;
+        if (msg.startsWith(NOTICKET)) {
+          msg = msg.replace(NOTICKET, "").trim();
+        } else if (msg.startsWith(OTHER)) {
+          msg = msg.replace(OTHER, "").trim();
+        }
+        msg = msg.trim();
+        if (msg.startsWith(":"))
+          msg = msg.replace(":", "").trim();
+        list.push({ text: `${msg} (<${createCommitLink(commit, opts)}|${commit.shortSha}>)`, indent: 1 });
       }
     }
   }
@@ -36623,10 +36638,10 @@ function createCommitLink(commit, { serverUrl, repository }) {
 }
 
 // src/github.ts
-var core = __toESM(require_core(), 1);
+var core2 = __toESM(require_core(), 1);
 async function getCommits(octokit, beforeSha, afterSha, owner, repo) {
   try {
-    core.info(`Fetching commits between ${beforeSha} and ${afterSha}`);
+    core2.info(`Fetching commits between ${beforeSha} and ${afterSha}`);
     const comparison = await octokit.rest.repos.compareCommits({
       owner,
       repo,
@@ -36635,7 +36650,7 @@ async function getCommits(octokit, beforeSha, afterSha, owner, repo) {
     });
     const commits = comparison.data.commits;
     if (!commits || commits.length === 0) {
-      core.info("No commits found in the specified range.");
+      core2.info("No commits found in the specified range.");
       return [];
     }
     return commits.map((commit) => ({
@@ -36644,7 +36659,7 @@ async function getCommits(octokit, beforeSha, afterSha, owner, repo) {
       message: commit.commit.message
     }));
   } catch (error) {
-    core.info(`Failed to fetch commits: ${error instanceof Error ? error.message : String(error)}`);
+    core2.info(`Failed to fetch commits: ${error instanceof Error ? error.message : String(error)}`);
     return [];
   }
 }
@@ -36657,15 +36672,16 @@ async function run() {
     const actor = github.context.actor;
     const serverUrl = process.env.GITHUB_SERVER_URL || "https://github.com";
     const repository = github.context.repo.owner + "/" + github.context.repo.repo;
-    const webhookUrl = core2.getInput("slack-webhook-url");
-    const githubToken = core2.getInput("github-token");
+    const webhookUrl = core3.getInput("slack-webhook-url");
+    const githubToken = core3.getInput("github-token");
     if (!webhookUrl || !githubToken) {
-      core2.setFailed('Both "slack-webhook-url" and "github-token" inputs are required.');
+      core3.setFailed('Both "slack-webhook-url" and "github-token" inputs are required.');
       return;
     }
-    core2.info(`Processing commits from ${beforeSha} to ${afterSha}`);
+    core3.info(`Processing commits from ${beforeSha} to ${afterSha}`);
     const octokit = github.getOctokit(githubToken);
     const commits = await getCommits(octokit, beforeSha, afterSha, github.context.repo.owner, github.context.repo.repo);
+    core3.info(`Found ${commits.length} commits between ${beforeSha} and ${afterSha}`);
     const list = createList2(commits, {
       serverUrl,
       repository,
@@ -36674,11 +36690,12 @@ async function run() {
     try {
       await sendChangelog({ webhookUrl, list, githubInfo: { serverUrl, repository, actor } });
     } catch (error) {
-      core2.setFailed(`Failed to send Slack notification: ${error instanceof Error ? error.message : String(error)}`);
+      core3.setFailed(`Failed to send Slack notification: ${error instanceof Error ? error.message : String(error)}`);
     }
-    core2.info("Slack notification sent successfully");
+    core3.info("Slack notification sent successfully");
   } catch (error) {
-    core2.setFailed(`Action failed: ${error instanceof Error ? error.message : String(error)}`);
+    core3.setFailed(`Action failed: ${error instanceof Error ? error.message : "Unknown error"}
+${JSON.stringify(error, null, 2)}`);
   }
 }
 run();

@@ -23,8 +23,10 @@ async function run(): Promise<void> {
         core.info(`Processing commits from ${beforeSha} to ${afterSha}`);
 
         const octokit = github.getOctokit(githubToken);
-
         const commits = await getCommits(octokit, beforeSha, afterSha, github.context.repo.owner, github.context.repo.repo);
+
+        core.info(`Found ${commits.length} commits between ${beforeSha} and ${afterSha}`);
+
         const list = createList(commits, {
             serverUrl,
             repository,
@@ -41,7 +43,7 @@ async function run(): Promise<void> {
         core.info('Slack notification sent successfully');
 
     } catch (error) {
-        core.setFailed(`Action failed: ${error instanceof Error ? error.message : String(error)}`);
+        core.setFailed(`Action failed: ${error instanceof Error ? error.message : 'Unknown error'}\n${JSON.stringify(error, null, 2)}`);
     }
 }
 
