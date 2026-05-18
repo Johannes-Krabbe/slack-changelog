@@ -36565,73 +36565,14 @@ function createList(opts) {
 
 // src/parser.ts
 var core = __toESM(require_core(), 1);
-var NOTICKET = "NOTICKET";
-var OTHER = "OTHER";
-var TICKET_CODE_REGEX = /^[A-Z]+(?:-|\s)[0-9]+/i;
 function createList2(commits, opts) {
-  const data = {};
   core.info(`Creating list from ${commits.length} commits`);
   core.info(JSON.stringify(commits, null, 2));
-  for (const commit of commits) {
-    if (commit.message.startsWith(NOTICKET)) {
-      if (!data[NOTICKET])
-        data[NOTICKET] = { header: NOTICKET, commits: [] };
-      data[NOTICKET].commits.push(commit);
-      continue;
-    }
-    const ticketMatch = commit.message.match(TICKET_CODE_REGEX);
-    if (ticketMatch) {
-      const ticket = ticketMatch[0].replace(/\s/, "-").toUpperCase();
-      if (!data[ticket]) {
-        const ticketLink = `<https://linear.app/${opts.linearOrg}/issue/${ticket}|${ticket}>`;
-        data[ticket] = { header: ticketLink, commits: [] };
-      }
-      data[ticket].commits.push(commit);
-      continue;
-    }
-    if (!data[OTHER])
-      data[OTHER] = { header: OTHER, commits: [] };
-    data[OTHER].commits.push(commit);
-  }
-  const keys = Object.keys(data).sort((a, b) => {
-    if (a === OTHER)
-      return 1;
-    if (b === OTHER)
-      return -1;
-    if (a === NOTICKET)
-      return 1;
-    if (b === NOTICKET)
-      return -1;
-    return a.localeCompare(b);
-  });
-  const list = [];
-  for (const key of keys) {
-    if (!data[key])
-      throw new Error(`Key ${key} not found in data (internal error)`);
-    const { header, commits: commits2 } = data[key];
-    if (commits2.length === 1) {
-      const ticketMatch = commits2[0].message.match(TICKET_CODE_REGEX);
-      let messageWithoutTicket = ticketMatch ? commits2[0].message.replace(ticketMatch[0], "").trim() : commits2[0].message;
-      if (messageWithoutTicket.startsWith(":"))
-        messageWithoutTicket = messageWithoutTicket.replace(":", "").trim();
-      list.push({ text: `${header} ${messageWithoutTicket} (<${createCommitLink(commits2[0], opts)}|${commits2[0].shortSha}>)`, indent: 0 });
-    } else {
-      list.push({ text: header, indent: 0 });
-      for (const commit of commits2) {
-        let msg = commit.message;
-        if (msg.startsWith(NOTICKET)) {
-          msg = msg.replace(NOTICKET, "").trim();
-        } else if (msg.startsWith(OTHER)) {
-          msg = msg.replace(OTHER, "").trim();
-        }
-        msg = msg.trim();
-        if (msg.startsWith(":"))
-          msg = msg.replace(":", "").trim();
-        list.push({ text: `${msg} (<${createCommitLink(commit, opts)}|${commit.shortSha}>)`, indent: 1 });
-      }
-    }
-  }
-  return list;
+  return commits.map((commit) => ({
+    text: `${commit.message.split(`
+`)[0].trim()} (<${createCommitLink(commit, opts)}|${commit.shortSha}>)`,
+    indent: 0
+  }));
 }
 function createCommitLink(commit, { serverUrl, repository }) {
   return `${serverUrl}/${repository}/commit/${commit.sha}`;
@@ -36684,8 +36625,7 @@ async function run() {
     core3.info(`Found ${commits.length} commits between ${beforeSha} and ${afterSha}`);
     const list = createList2(commits, {
       serverUrl,
-      repository,
-      linearOrg: "neotaste"
+      repository
     });
     try {
       await sendChangelog({ webhookUrl, list, githubInfo: { serverUrl, repository, actor } });

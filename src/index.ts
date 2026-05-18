@@ -29,8 +29,7 @@ async function run(): Promise<void> {
 
         const list = createList(commits, {
             serverUrl,
-            repository,
-            linearOrg: 'neotaste'
+            repository
         })
 
         // Send Slack notification

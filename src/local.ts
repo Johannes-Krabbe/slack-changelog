@@ -21,8 +21,7 @@ async function run() {
 
     const list = createList(commits, {
         serverUrl: 'https://github.com',
-        repository: `${GITHUB_OWNER}/${GITHUB_REPOSITORY}`,
-        linearOrg: 'neotaste'
+        repository: `${GITHUB_OWNER}/${GITHUB_REPOSITORY}`
     })
 
     // Send Slack notification
